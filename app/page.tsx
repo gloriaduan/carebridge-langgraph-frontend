@@ -1,7 +1,5 @@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 import QuerySubmitButton from "@/components/query-submit/query-submit";
 import { PageLoader } from "@/components/loaders/page-loader";
 
