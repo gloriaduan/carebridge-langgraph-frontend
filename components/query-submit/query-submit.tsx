@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { socket } from "@/lib/socket";
 import ResultCard from "../result/result-card";
+import { LocationResult } from "@/types";
 
 export default function QuerySubmitButton() {
   const [isLoading, setIsLoading] = useState(false);
@@ -86,7 +87,7 @@ export default function QuerySubmitButton() {
           <h2 className="text-lg font-medium text-green-800">Final Result:</h2>
           {/* <p className="mt-2">{finalResult}</p> */}
           {JSON.parse(finalResult).addresses.map(
-            (result: any, index: number) => (
+            (result: LocationResult, index: number) => (
               <ResultCard key={index} result={result} />
             )
           )}
