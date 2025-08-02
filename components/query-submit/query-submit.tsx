@@ -32,17 +32,11 @@ export default function QuerySubmitButton() {
   const [finalResult, setFinalResult] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [locationTimestamp, setLocationTimestamp] = useState<number | null>(
-    null
-  );
 
-  // Location cache duration (5 minutes)
-  const LOCATION_MAX_AGE = 300000;
+  // Default Toronto coordinates
+  const DEFAULT_LOCATION = { lat: 43.65212493429662, lng: -79.3804402346119 };
 
   useEffect(() => {
     socket.on("connect", () => {
@@ -76,12 +70,8 @@ export default function QuerySubmitButton() {
     };
   }, []);
 
-  const isLocationExpired = (): boolean => {
-    if (!locationTimestamp) return true;
-    return Date.now() - locationTimestamp > LOCATION_MAX_AGE;
-  };
-
-  const handleSubmitConfirmed = async () => {
+  // Centralized function to submit query to socket
+  const submitQueryToSocket = (userLocation: { lat: number; lng: number }) => {
     const queryElement = document.getElementById(
       "query"
     ) as HTMLTextAreaElement | null;
@@ -89,32 +79,21 @@ export default function QuerySubmitButton() {
 
     if (!query) return;
 
-    setIsGettingLocation(true);
+    // Reset states
+    setError(null);
+    setResults([]);
+    setFinalResult("");
+    setIsLoading(true);
+    setIsDialogOpen(false);
     setLocationError(null);
 
-    try {
-      const userLocation = await getCurrentLocation();
-      setLocation(userLocation);
-      setLocationTimestamp(Date.now());
+    console.log("Submitting query with location:", { query, userLocation });
 
-      setError(null);
-      setResults([]);
-      setFinalResult("");
-      setIsLoading(true);
-      setIsDialogOpen(false);
-      setIsGettingLocation(false);
-
-      console.log("Submitting query with location:", { query, userLocation });
-
-      // Emit the query and location to the server
-      socket.emit("on_submit_query", {
-        query,
-        location: userLocation,
-      });
-    } catch (error) {
-      setLocationError(error as string);
-      setIsGettingLocation(false);
-    }
+    // Emit the query and location to the server
+    socket.emit("on_submit_query", {
+      query,
+      location: userLocation,
+    });
   };
 
   const getCurrentLocation = (): Promise<{ lat: number; lng: number }> => {
@@ -126,10 +105,11 @@ export default function QuerySubmitButton() {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          resolve({
+          const coords = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          });
+          };
+          resolve(coords);
         },
         (error) => {
           let errorMessage = "Unable to retrieve your location";
@@ -152,95 +132,122 @@ export default function QuerySubmitButton() {
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: LOCATION_MAX_AGE,
+          maximumAge: 0,
         }
       );
     });
   };
 
-  const handleProceedWithoutLocation = () => {
-    const queryElement = document.getElementById(
-      "query"
-    ) as HTMLTextAreaElement | null;
-    const query = queryElement?.value?.trim();
-
-    if (!query) return;
-
-    setError(null);
-    setResults([]);
-    setFinalResult("");
-    setIsLoading(true);
-    setIsDialogOpen(false);
-    setLocationError(null);
-
-    // default to Toronto if no location is provided
-    const userLocation = { lat: 43.65212493429662, lng: -79.3804402346119 };
-
-    // Proceed without location
-    socket.emit("on_submit_query", { query, location: userLocation });
-  };
-
-  const handleSubmit = () => {
-    const queryElement = document.getElementById(
-      "query"
-    ) as HTMLTextAreaElement | null;
-    const query = queryElement?.value?.trim();
-
-    if (!query) return;
-
-    // Check if we have a cached location that hasn't expired
-    if (location && !isLocationExpired()) {
-      // Use cached location directly
-      setError(null);
-      setResults([]);
-      setFinalResult("");
-      setIsLoading(true);
-
-      console.log("Using cached location:", location);
-      socket.emit("on_submit_query", { query, location });
-      return;
+  const checkLocationPermission = async (): Promise<boolean> => {
+    if (!navigator.permissions) {
+      return false; // Permissions API not supported
     }
 
-    // Location expired or doesn't exist, show the permission dialog
-    setIsDialogOpen(true);
+    try {
+      const permission = await navigator.permissions.query({
+        name: "geolocation",
+      });
+      return permission.state === "granted";
+    } catch (error) {
+      return false; // Error checking permissions
+    }
+  };
+
+  const handleSubmitWithLocationRequest = async () => {
+    setIsGettingLocation(true);
+    setLocationError(null);
+
+    try {
+      const userLocation = await getCurrentLocation();
+      setIsGettingLocation(false);
+      submitQueryToSocket(userLocation);
+    } catch (error) {
+      setLocationError(error as string);
+      setIsGettingLocation(false);
+    }
+  };
+
+  const handleProceedWithoutLocation = () => {
+    submitQueryToSocket(DEFAULT_LOCATION);
+  };
+
+  const handleRetryLocation = () => {
+    setLocationError(null);
+    handleSubmitWithLocationRequest();
+  };
+
+  const handleCancel = () => {
+    setIsDialogOpen(false);
+    // Proceed with default location when user cancels
+    submitQueryToSocket(DEFAULT_LOCATION);
+  };
+
+  const handleSubmit = async () => {
+    const queryElement = document.getElementById(
+      "query"
+    ) as HTMLTextAreaElement | null;
+    const query = queryElement?.value?.trim();
+
+    if (!query) return;
+
+    // Check if location permission is already granted
+    const hasLocationPermission = await checkLocationPermission();
+
+    if (hasLocationPermission) {
+      // Permission already granted, get location directly
+      setIsGettingLocation(true);
+      try {
+        const userLocation = await getCurrentLocation();
+        setIsGettingLocation(false);
+        submitQueryToSocket(userLocation);
+      } catch (error) {
+        setIsGettingLocation(false);
+        // If getting location fails even with permission, use default
+        submitQueryToSocket(DEFAULT_LOCATION);
+      }
+    } else {
+      // No permission, show dialog
+      setIsDialogOpen(true);
+    }
+  };
+
+  const handleButtonClick = () => {
+    // Don't let the dialog trigger automatically
+    handleSubmit();
   };
 
   return (
     <>
       <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <AlertDialogTrigger asChild>
-          <Button
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Searching for resources...
-              </>
-            ) : (
-              <>
-                <Search className="mr-2 h-5 w-5" />
-                Find Resources
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </>
-            )}
-          </Button>
-        </AlertDialogTrigger>
+        <Button
+          onClick={handleButtonClick}
+          disabled={isLoading || isGettingLocation}
+          className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+        >
+          {isLoading || isGettingLocation ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {isGettingLocation
+                ? "Getting location..."
+                : "Searching for resources..."}
+            </>
+          ) : (
+            <>
+              <Search className="mr-2 h-5 w-5" />
+              Find Resources
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </>
+          )}
+        </Button>
 
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              {location && isLocationExpired()
-                ? "Update Location"
-                : "Location Access Request"}
+              Location Access Request
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {location && isLocationExpired()
-                ? "Your location information has expired. We'd like to update it to provide you with the most current and relevant community resources nearby."
-                : !locationError
+              {!locationError
                 ? "We'd like to access your location to provide you with the most relevant community resources nearby."
                 : "Location access failed. You can try again or continue without location."}
             </AlertDialogDescription>
@@ -265,29 +272,11 @@ export default function QuerySubmitButton() {
                     Privacy protection:
                   </p>
                   <ul className="text-sm text-sage-300 space-y-1">
-                    <li>• Location cached for 5 minutes only</li>
+                    <li>• Location used only for this search</li>
                     <li>• Not stored permanently</li>
                     <li>• Never shared with third parties</li>
                   </ul>
                 </div>
-
-                {location && isLocationExpired() && (
-                  <div className="bg-timberwolf/20 p-3 rounded-lg border border-timberwolf/30">
-                    <div className="flex items-start gap-2">
-                      <Clock className="h-5 w-5 text-timberwolf-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-timberwolf-200 mb-1">
-                          Location Update Needed
-                        </p>
-                        <p className="text-sm text-timberwolf-300">
-                          Your cached location is more than 5 minutes old.
-                          Updating will ensure you get the most accurate nearby
-                          resources.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </>
             ) : (
               <div className="space-y-3">
@@ -314,25 +303,24 @@ export default function QuerySubmitButton() {
           </div>
 
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="w-full sm:w-auto">
-              Cancel
+            <AlertDialogCancel
+              onClick={handleCancel}
+              className="w-full sm:w-auto"
+            >
+              Continue without location (Toronto)
             </AlertDialogCancel>
 
             {!locationError ? (
               <AlertDialogAction
-                onClick={handleSubmitConfirmed}
+                onClick={handleSubmitWithLocationRequest}
                 disabled={isGettingLocation}
                 className="w-full sm:w-auto bg-primary hover:bg-primary/90 disabled:opacity-50"
               >
                 {isGettingLocation ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {location && isLocationExpired()
-                      ? "Updating Location..."
-                      : "Getting Location..."}
+                    Getting Location...
                   </>
-                ) : location && isLocationExpired() ? (
-                  "Update & Find Resources"
                 ) : (
                   "Allow & Find Resources"
                 )}
@@ -340,20 +328,24 @@ export default function QuerySubmitButton() {
             ) : (
               <div className="flex gap-2 w-full sm:w-auto">
                 <AlertDialogAction
-                  onClick={() => {
-                    setLocationError(null);
-                    handleSubmitConfirmed();
-                  }}
+                  onClick={handleRetryLocation}
                   disabled={isGettingLocation}
-                  className="flex-1 sm:flex-none border-primary/20 text-primary hover:bg-primary/10"
+                  className="flex-1 sm:flex-none border-primary/20 text-white hover:bg-primary/90"
                 >
-                  Try Again
+                  {isGettingLocation ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    "Try Again"
+                  )}
                 </AlertDialogAction>
                 <AlertDialogAction
                   onClick={handleProceedWithoutLocation}
                   className="flex-1 sm:flex-none bg-muted hover:bg-muted/80 text-muted-foreground"
                 >
-                  Continue Without Location
+                  Continue Without Location (Toronto)
                 </AlertDialogAction>
               </div>
             )}

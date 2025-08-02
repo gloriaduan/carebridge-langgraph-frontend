@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import QuerySubmitButton from "@/components/query-submit/query-submit";
-import { Heart, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 export default function Home() {
   return (
@@ -19,7 +19,7 @@ export default function Home() {
           </h2>
           <p className="text-sage-300 leading-relaxed">
             Discover local resources, support services, and community programs
-            tailored to your needs. We're here to help you find the right
+            tailored to your needs. We&apos;re here to help you find the right
             assistance in your area.
           </p>
         </div>
@@ -36,7 +36,7 @@ export default function Home() {
                   Find Resources Near You
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Tell us what kind of help you're looking for
+                  Tell us what kind of help you&apos;re looking for
                 </p>
               </div>
             </div>
