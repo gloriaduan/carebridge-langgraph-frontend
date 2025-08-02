@@ -110,18 +110,18 @@ export default function QuerySubmitButton() {
           };
           resolve(coords);
         },
-        (error) => {
+        (geoError) => {
           let errorMessage = "Unable to retrieve your location";
 
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
+          switch (geoError.code) {
+            case geoError.PERMISSION_DENIED:
               errorMessage =
                 "Location access denied. Please enable location permissions and try again.";
               break;
-            case error.POSITION_UNAVAILABLE:
+            case geoError.POSITION_UNAVAILABLE:
               errorMessage = "Location information is unavailable.";
               break;
-            case error.TIMEOUT:
+            case geoError.TIMEOUT:
               errorMessage = "Location request timed out. Please try again.";
               break;
           }
@@ -147,7 +147,7 @@ export default function QuerySubmitButton() {
         name: "geolocation",
       });
       return permission.state === "granted";
-    } catch (error) {
+    } catch {
       return false; // Error checking permissions
     }
   };
@@ -160,8 +160,8 @@ export default function QuerySubmitButton() {
       const userLocation = await getCurrentLocation();
       setIsGettingLocation(false);
       submitQueryToSocket(userLocation);
-    } catch (error) {
-      setLocationError(error as string);
+    } catch (locationErr) {
+      setLocationError(locationErr as string);
       setIsGettingLocation(false);
     }
   };
@@ -199,7 +199,7 @@ export default function QuerySubmitButton() {
         const userLocation = await getCurrentLocation();
         setIsGettingLocation(false);
         submitQueryToSocket(userLocation);
-      } catch (error) {
+      } catch {
         setIsGettingLocation(false);
         // If getting location fails even with permission, use default
         submitQueryToSocket(DEFAULT_LOCATION);
