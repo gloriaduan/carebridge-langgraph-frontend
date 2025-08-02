@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CareConnect - A Toronto Community Resources Agent
 
-## Getting Started
+🔧 View Backend Repo: [backend](https://github.com/gloriaduan/carebridge-langgraph-frontend)](https://github.com/gloriaduan/carebridge-langgraph-backend)
 
-First, run the development server:
+A LangGraph-powered intelligent agent that helps users find community and social support services in the Greater Toronto Area. The system uses Toronto's Open Data API and Google Maps to provide real-time information about shelters, family centers, and other essential services.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🌟 Features
+
+- **Smart Query Processing**: Validates and processes natural language queries for community services
+- **Multi-Source Data Integration**: Combines Toronto Open Data API with Google Maps for comprehensive results
+- **Location-Based Filtering**: Filters results by proximity to user location using geocoding
+- **Real-Time Occupancy Data**: Provides current shelter availability and occupancy rates
+- **Multi-Language Support**: Supports 25+ languages for family center programs
+- **Caching Layer**: Redis-based caching for improved performance
+- **Real-Time Updates**: WebSocket-based progress updates during query processing
+
+## 🏗️ Architecture
+
+The application uses a LangGraph state machine with the following workflow:
+
+```
+Query Input → Validation → API Search → Evaluation → Web Search (if needed) → Response Generation
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Core Components
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Query Validation**: Classifies queries as valid community service requests
+- **API Search**: Retrieves data from Toronto Open Data portal
+- **Evaluation**: Determines if additional web search is needed
+- **Web Search**: Google Maps integration for additional results
+- **Response Generation**: Structured output with contact information
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 Deployment
 
-## Learn More
+### Backend (Google Cloud Platform)
+- **Platform**: Google Cloud Run
+- **Language**: Python with FastAPI
+- **WebSockets**: Socket.IO for real-time communication
+- **Caching**: Redis for performance optimization
 
-To learn more about Next.js, take a look at the following resources:
+### Frontend (Vercel)
+- **Platform**: Vercel
+- **Framework**: React/Next.js (inferred from Socket.IO integration)
+- **Real-time**: Socket.IO client for live updates
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📊 Supported Services
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Shelters
+- **Sectors**: Families, Mixed Adult, Men, Women, Youth
+- **Service Types**: Shelter, Motel/Hotel Shelter, 24-Hour Respite Site, etc.
+- **Real-time Data**: Occupancy rates, capacity, availability
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Children & Family Centers
+- **Language Programs**: 25+ supported languages including Arabic, Mandarin, Spanish, etc.
+- **Specialized Programs**: French language programs, Indigenous programs
+- **Services**: Early childhood development, family support, parenting programs
